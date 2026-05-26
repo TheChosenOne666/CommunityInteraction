@@ -10,18 +10,17 @@ import com.xiaolou.community.exception.ThrowUtils;
 import com.xiaolou.community.mapper.PostFavourMapper;
 import com.xiaolou.community.mapper.PostMapper;
 import com.xiaolou.community.mapper.PostThumbMapper;
-import com.xiaolou.community.model.dto.post.PostEsDTO;
 import com.xiaolou.community.model.dto.post.PostQueryRequest;
 import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.PostFavour;
-import com.xiaolou.community.model.entity.PostThumb;
+import com.xiaolou.community.model.entity.Thumb;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.vo.PostVO;
 import com.xiaolou.community.model.vo.UserVO;
 import com.xiaolou.community.service.PostService;
 import com.xiaolou.community.service.UserService;
 import com.xiaolou.community.utils.SqlUtils;
-import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +34,6 @@ import cn.hutool.core.collection.CollUtil;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import org.springframework.data.domain.PageRequest;
-
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
 /**
@@ -137,11 +132,11 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         User loginUser = userService.getLoginUserPermitNull(request);
         if (loginUser != null) {
             // 获取点赞
-            QueryWrapper<PostThumb> postThumbQueryWrapper = new QueryWrapper<>();
+            QueryWrapper<Thumb> postThumbQueryWrapper = new QueryWrapper<>();
             postThumbQueryWrapper.in("postId", postId);
             postThumbQueryWrapper.eq("userId", loginUser.getId());
-            PostThumb postThumb = postThumbMapper.selectOne(postThumbQueryWrapper);
-            postVO.setHasThumb(postThumb != null);
+            Thumb thumb = postThumbMapper.selectOne(postThumbQueryWrapper);
+            postVO.setHasThumb(thumb != null);
             // 获取收藏
             QueryWrapper<PostFavour> postFavourQueryWrapper = new QueryWrapper<>();
             postFavourQueryWrapper.in("postId", postId);
@@ -171,11 +166,11 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
             Set<Long> postIdSet = postList.stream().map(Post::getId).collect(Collectors.toSet());
             loginUser = userService.getLoginUser(request);
             // 获取点赞
-            QueryWrapper<PostThumb> postThumbQueryWrapper = new QueryWrapper<>();
+            QueryWrapper<Thumb> postThumbQueryWrapper = new QueryWrapper<>();
             postThumbQueryWrapper.in("postId", postIdSet);
             postThumbQueryWrapper.eq("userId", loginUser.getId());
-            List<PostThumb> postPostThumbList = postThumbMapper.selectList(postThumbQueryWrapper);
-            postPostThumbList.forEach(postPostThumb -> postIdHasThumbMap.put(postPostThumb.getPostId(), true));
+            List<Thumb> postThumbList = postThumbMapper.selectList(postThumbQueryWrapper);
+            postThumbList.forEach(postThumb -> postIdHasThumbMap.put(postThumb.getPostId(), true));
             // 获取收藏
             QueryWrapper<PostFavour> postFavourQueryWrapper = new QueryWrapper<>();
             postFavourQueryWrapper.in("postId", postIdSet);

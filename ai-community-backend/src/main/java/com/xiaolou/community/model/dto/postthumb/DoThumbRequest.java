@@ -10,7 +10,7 @@ import lombok.Data;
  * @from <a href="https://github.com/TheChosenOne666">TheChosenOne666</a>
  */
 @Data
-public class PostThumbAddRequest implements Serializable {
+public class DoThumbRequest implements Serializable {
 
     /**
      * 帖子 id

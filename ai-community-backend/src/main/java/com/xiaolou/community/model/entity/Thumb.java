@@ -16,7 +16,7 @@ import lombok.Data;
  */
 @TableName(value = "post_thumb")
 @Data
-public class PostThumb implements Serializable {
+public class Thumb implements Serializable {
 
     /**
      * id

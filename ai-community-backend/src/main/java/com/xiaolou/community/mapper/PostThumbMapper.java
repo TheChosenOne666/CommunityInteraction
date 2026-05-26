@@ -1,6 +1,6 @@
 package com.xiaolou.community.mapper;
 
-import com.xiaolou.community.model.entity.PostThumb;
+import com.xiaolou.community.model.entity.Thumb;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * @author <a href="https://github.com/TheChosenOne666">小楼</a>
  * @from <a href="https://github.com/TheChosenOne666">TheChosenOne666</a>
  */
-public interface PostThumbMapper extends BaseMapper<PostThumb> {
+public interface PostThumbMapper extends BaseMapper<Thumb> {
 
 }
 
