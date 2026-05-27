@@ -1,6 +1,7 @@
 package com.xiaolou.community.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xiaolou.community.constant.ThumbConstant;
 import com.xiaolou.community.mapper.PostThumbMapper;
 import com.xiaolou.community.model.dto.postthumb.DoThumbRequest;
 import com.xiaolou.community.model.entity.Post;
@@ -12,6 +13,7 @@ import com.xiaolou.community.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -34,6 +36,9 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
 
     @Resource
     private TransactionTemplate transactionTemplate;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
       
     @Override  
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {  
@@ -47,10 +52,7 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
             // 编程式事务  
             return transactionTemplate.execute(status -> {  
                 Long blogId = doThumbRequest.getPostId();
-                boolean exists = this.lambdaQuery()  
-                        .eq(Thumb::getUserId, loginUser.getId())  
-                        .eq(Thumb::getPostId, blogId)
-                        .exists();  
+                boolean exists = this.hasThumb(blogId, loginUser.getId());
                 if (exists) {  
                     throw new RuntimeException("用户已点赞");  
                 }  
@@ -63,8 +65,13 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
                 Thumb thumb = new Thumb();  
                 thumb.setUserId(loginUser.getId());  
                 thumb.setPostId(blogId);
-                // 更新成功才执行  
-                return update && this.save(thumb);  
+                boolean success = update && this.save(thumb);
+                // 点赞记录存入 Redis
+                if (success) {
+                    redisTemplate.opsForHash().put(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString(), blogId.toString(), thumb.getId());
+                }
+                // 更新成功才执行
+                return success;
             });  
         }  
     }
@@ -81,21 +88,28 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
             // 编程式事务
             return transactionTemplate.execute(status -> {
                 Long blogId = doThumbRequest.getPostId();
-                Thumb thumb = this.lambdaQuery()
-                        .eq(Thumb::getUserId, loginUser.getId())
-                        .eq(Thumb::getPostId, blogId)
-                        .one();
-                if (thumb == null) {
+                Object thumbIdObj = redisTemplate.opsForHash().get(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString(), blogId.toString());
+                if (thumbIdObj == null) {
                     throw new RuntimeException("用户未点赞");
                 }
+                Long thumbId = Long.valueOf(thumbIdObj.toString());
                 boolean update = postService.lambdaUpdate()
                         .eq(Post::getId, blogId)
                         .setSql("thumbNum = thumbNum - 1")
                         .update();
-
-                return update && this.removeById(thumb.getId());
+                boolean success = update && this.removeById(thumbId);
+                // 点赞记录从 Redis 删除
+                if (success) {
+                    redisTemplate.opsForHash().delete(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(), blogId.toString());
+                }
+                return success;
             });
         }
+    }
+
+    @Override
+    public Boolean hasThumb(Long postId, Long userId) {
+        return redisTemplate.opsForHash().hasKey(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, postId.toString());
     }
 
 }

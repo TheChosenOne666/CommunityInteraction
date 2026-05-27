@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xiaolou.community.common.ErrorCode;
 import com.xiaolou.community.constant.CommonConstant;
+import com.xiaolou.community.constant.ThumbConstant;
 import com.xiaolou.community.exception.BusinessException;
 import com.xiaolou.community.exception.ThrowUtils;
 import com.xiaolou.community.mapper.PostFavourMapper;
@@ -34,6 +35,7 @@ import cn.hutool.core.collection.CollUtil;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -54,6 +56,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
     @Resource
     private PostFavourMapper postFavourMapper;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public void validPost(Post post, boolean add) {
@@ -131,12 +136,12 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         // 2. 已登录，获取用户点赞、收藏状态
         User loginUser = userService.getLoginUserPermitNull(request);
         if (loginUser != null) {
-            // 获取点赞
-            QueryWrapper<Thumb> postThumbQueryWrapper = new QueryWrapper<>();
-            postThumbQueryWrapper.in("postId", postId);
-            postThumbQueryWrapper.eq("userId", loginUser.getId());
-            Thumb thumb = postThumbMapper.selectOne(postThumbQueryWrapper);
-            postVO.setHasThumb(thumb != null);
+            // 从 Redis 获取点赞状态
+            Boolean hasThumb = redisTemplate.opsForHash().hasKey(
+                    ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(),
+                    String.valueOf(postId)
+            );
+            postVO.setHasThumb(hasThumb != null && hasThumb);
             // 获取收藏
             QueryWrapper<PostFavour> postFavourQueryWrapper = new QueryWrapper<>();
             postFavourQueryWrapper.in("postId", postId);
@@ -158,19 +163,21 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         Set<Long> userIdSet = postList.stream().map(Post::getUserId).collect(Collectors.toSet());
         Map<Long, List<User>> userIdUserListMap = userService.listByIds(userIdSet).stream()
                 .collect(Collectors.groupingBy(User::getId));
-        // 2. 已登录，获取用户点赞、收藏状态
+        // 2. 已登录，从 Redis 获取用户点赞状态
         Map<Long, Boolean> postIdHasThumbMap = new HashMap<>();
         Map<Long, Boolean> postIdHasFavourMap = new HashMap<>();
         User loginUser = userService.getLoginUserPermitNull(request);
         if (loginUser != null) {
             Set<Long> postIdSet = postList.stream().map(Post::getId).collect(Collectors.toSet());
             loginUser = userService.getLoginUser(request);
-            // 获取点赞
-            QueryWrapper<Thumb> postThumbQueryWrapper = new QueryWrapper<>();
-            postThumbQueryWrapper.in("postId", postIdSet);
-            postThumbQueryWrapper.eq("userId", loginUser.getId());
-            List<Thumb> postThumbList = postThumbMapper.selectList(postThumbQueryWrapper);
-            postThumbList.forEach(postThumb -> postIdHasThumbMap.put(postThumb.getPostId(), true));
+            // 从 Redis 批量获取点赞状态
+            String thumbKey = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId();
+            for (Long postId : postIdSet) {
+                Boolean hasThumb = redisTemplate.opsForHash().hasKey(thumbKey, String.valueOf(postId));
+                if (hasThumb != null && hasThumb) {
+                    postIdHasThumbMap.put(postId, true);
+                }
+            }
             // 获取收藏
             QueryWrapper<PostFavour> postFavourQueryWrapper = new QueryWrapper<>();
             postFavourQueryWrapper.in("postId", postIdSet);
