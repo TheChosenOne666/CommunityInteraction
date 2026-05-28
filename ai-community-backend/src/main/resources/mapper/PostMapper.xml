@@ -33,7 +33,7 @@
     </select>
 
     <update id="batchUpdateThumbNum">
-        UPDATE blog
+        UPDATE post
         SET thumbNum = thumbNum + CASE id
         <foreach collection="numMap.entrySet()" item="value" index="key">
             WHEN #{key} THEN #{value}

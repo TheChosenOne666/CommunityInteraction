@@ -12,17 +12,25 @@ public class RedisLuaScriptConstant {
      * 点赞 Lua 脚本  
      * KEYS[1]       -- 临时计数键  
      * KEYS[2]       -- 用户点赞状态键  
+     * KEYS[3]       -- 博客存在性校验键
      * ARGV[1]       -- 用户 ID  
      * ARGV[2]       -- 博客 ID  
      * 返回:  
      * -1: 已点赞  
+     * -2: 博客不存在
      * 1: 操作成功  
      */  
     public static final RedisScript<Long> THUMB_SCRIPT = new DefaultRedisScript<>("""  
             local tempThumbKey = KEYS[1]       -- 临时计数键（如 thumb:temp:{timeSlice}）  
             local userThumbKey = KEYS[2]       -- 用户点赞状态键（如 thumb:{userId}）  
+            local blogExistsKey = KEYS[3]      -- 博客存在性校验键
             local userId = ARGV[1]             -- 用户 ID  
             local blogId = ARGV[2]             -- 博客 ID  
+              
+            -- 0. 检查博客是否存在
+            if redis.call('EXISTS', blogExistsKey) == 0 then
+                return -2  -- 博客不存在，返回 -2
+            end
               
             -- 1. 检查是否已点赞（避免重复操作）  
             if redis.call('HEXISTS', userThumbKey, blogId) == 1 then  
@@ -45,16 +53,27 @@ public class RedisLuaScriptConstant {
   
     /**  
      * 取消点赞 Lua 脚本  
-     * 参数同上  
+     * KEYS[1]       -- 临时计数键
+     * KEYS[2]       -- 用户点赞状态键
+     * KEYS[3]       -- 博客存在性校验键
+     * ARGV[1]       -- 用户 ID
+     * ARGV[2]       -- 博客 ID
      * 返回：  
      * -1: 未点赞  
+     * -2: 博客不存在
      * 1: 操作成功  
      */  
     public static final RedisScript<Long> UNTHUMB_SCRIPT = new DefaultRedisScript<>("""  
             local tempThumbKey = KEYS[1]      -- 临时计数键（如 thumb:temp:{timeSlice}）  
             local userThumbKey = KEYS[2]      -- 用户点赞状态键（如 thumb:{userId}）  
+            local blogExistsKey = KEYS[3]     -- 博客存在性校验键
             local userId = ARGV[1]            -- 用户 ID  
             local blogId = ARGV[2]            -- 博客 ID  
+              
+            -- 0. 检查博客是否存在
+            if redis.call('EXISTS', blogExistsKey) == 0 then
+                return -2  -- 博客不存在，返回 -2
+            end
               
             -- 1. 检查用户是否已点赞（若未点赞，直接返回失败）  
             if redis.call('HEXISTS', userThumbKey, blogId) ~= 1 then  

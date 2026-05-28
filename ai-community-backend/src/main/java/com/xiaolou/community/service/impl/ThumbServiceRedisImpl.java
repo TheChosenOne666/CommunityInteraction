@@ -41,16 +41,20 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
         String timeSlice = getTimeSlice();  
         // Redis Key  
         String tempThumbKey = RedisKeyUtil.getTempThumbKey(timeSlice);  
-        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());  
+        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());
+        String blogExistsKey = RedisKeyUtil.getBlogExistsKey(blogId);
   
         // 执行 Lua 脚本  
         long result = redisTemplate.execute(  
                 RedisLuaScriptConstant.THUMB_SCRIPT,  
-                Arrays.asList(tempThumbKey, userThumbKey),  
+                Arrays.asList(tempThumbKey, userThumbKey, blogExistsKey),  
                 loginUser.getId(),  
                 blogId  
         );  
   
+        if (result == -2) {
+            throw new RuntimeException("博客不存在");
+        }
         if (LuaStatusEnum.FAIL.getValue() == result) {  
             throw new RuntimeException("用户已点赞");  
         }  
@@ -65,27 +69,31 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
             throw new RuntimeException("参数错误");  
         }  
         User loginUser = userService.getLoginUser(request);  
-  
+      
         Long blogId = doThumbRequest.getPostId();
         // 计算时间片  
         String timeSlice = getTimeSlice();  
         // Redis Key  
         String tempThumbKey = RedisKeyUtil.getTempThumbKey(timeSlice);  
-        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());  
-  
+        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());
+        String blogExistsKey = RedisKeyUtil.getBlogExistsKey(blogId);
+      
         // 执行 Lua 脚本  
         long result = redisTemplate.execute(  
                 RedisLuaScriptConstant.UNTHUMB_SCRIPT,  
-                Arrays.asList(tempThumbKey, userThumbKey),  
+                Arrays.asList(tempThumbKey, userThumbKey, blogExistsKey),  
                 loginUser.getId(),  
                 blogId  
-        );  
-        // 根据返回值处理结果  
+        );
+        // 根据返回值处理结果
+        if (result == -2) {
+            throw new RuntimeException("博客不存在");
+        }
         if (result == LuaStatusEnum.FAIL.getValue()) {  
             throw new RuntimeException("用户未点赞");  
-        }  
+        }
         return LuaStatusEnum.SUCCESS.getValue() == result;  
-    }  
+    }
   
     private String getTimeSlice() {  
         DateTime nowDate = DateUtil.date();  
