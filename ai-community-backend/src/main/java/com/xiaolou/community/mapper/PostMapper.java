@@ -2,8 +2,11 @@ package com.xiaolou.community.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.xiaolou.community.model.entity.Post;
+import org.apache.ibatis.annotations.Param;
+
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 帖子数据库操作
@@ -18,6 +21,10 @@ public interface PostMapper extends BaseMapper<Post> {
      */
     List<Post> listPostWithDelete(Date minUpdateTime);
 
+    /**
+     * 批量更新帖子点赞数
+     */
+    void batchUpdateThumbNum(@Param("numMap")Map<Long, Long> numMap);
 }
 
 

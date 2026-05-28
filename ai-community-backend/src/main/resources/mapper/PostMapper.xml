@@ -31,4 +31,18 @@
         from post
         where updateTime >= #{minUpdateTime}
     </select>
+
+    <update id="batchUpdateThumbNum">
+        UPDATE blog
+        SET thumbNum = thumbNum + CASE id
+        <foreach collection="numMap.entrySet()" item="value" index="key">
+            WHEN #{key} THEN #{value}
+        </foreach>
+        END
+        WHERE id IN
+        <foreach collection="numMap.keySet()" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
 </mapper>

@@ -1,42 +1,38 @@
 package com.xiaolou.community.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xiaolou.community.common.ErrorCode;
 import com.xiaolou.community.constant.CommonConstant;
-import com.xiaolou.community.constant.ThumbConstant;
 import com.xiaolou.community.exception.BusinessException;
 import com.xiaolou.community.exception.ThrowUtils;
 import com.xiaolou.community.mapper.PostFavourMapper;
 import com.xiaolou.community.mapper.PostMapper;
-import com.xiaolou.community.mapper.PostThumbMapper;
 import com.xiaolou.community.model.dto.post.PostQueryRequest;
 import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.PostFavour;
-import com.xiaolou.community.model.entity.Thumb;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.vo.PostVO;
 import com.xiaolou.community.model.vo.UserVO;
 import com.xiaolou.community.service.PostService;
 import com.xiaolou.community.service.UserService;
+import com.xiaolou.community.utils.RedisKeyUtil;
 import com.xiaolou.community.utils.SqlUtils;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
-import cn.hutool.core.collection.CollUtil;
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
 
 /**
  * 帖子服务实现
@@ -50,9 +46,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
     @Resource
     private UserService userService;
-
-    @Resource
-    private PostThumbMapper postThumbMapper;
 
     @Resource
     private PostFavourMapper postFavourMapper;
@@ -138,7 +131,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         if (loginUser != null) {
             // 从 Redis 获取点赞状态
             Boolean hasThumb = redisTemplate.opsForHash().hasKey(
-                    ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(),
+                    RedisKeyUtil.getUserThumbKey(loginUser.getId()),
                     String.valueOf(postId)
             );
             postVO.setHasThumb(hasThumb != null && hasThumb);
@@ -171,7 +164,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
             Set<Long> postIdSet = postList.stream().map(Post::getId).collect(Collectors.toSet());
             loginUser = userService.getLoginUser(request);
             // 从 Redis 批量获取点赞状态
-            String thumbKey = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId();
+            String thumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());
             for (Long postId : postIdSet) {
                 Boolean hasThumb = redisTemplate.opsForHash().hasKey(thumbKey, String.valueOf(postId));
                 if (hasThumb != null && hasThumb) {

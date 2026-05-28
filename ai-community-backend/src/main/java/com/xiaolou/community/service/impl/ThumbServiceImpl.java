@@ -10,6 +10,7 @@ import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.service.PostService;
 import com.xiaolou.community.service.ThumbService;
 import com.xiaolou.community.service.UserService;
+import com.xiaolou.community.utils.RedisKeyUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @author <a href="https://github.com/TheChosenOne666">小楼</a>
  * @from <a href="https://github.com/TheChosenOne666">TheChosenOne666</a>
  */
-@Service
+@Service("thumbServiceDB")
 @Slf4j
 public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implements ThumbService {
 
@@ -88,7 +89,7 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
             // 编程式事务
             return transactionTemplate.execute(status -> {
                 Long blogId = doThumbRequest.getPostId();
-                Object thumbIdObj = redisTemplate.opsForHash().get(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString(), blogId.toString());
+                Object thumbIdObj = redisTemplate.opsForHash().get(RedisKeyUtil.getUserThumbKey(loginUser.getId()), blogId.toString());
                 if (thumbIdObj == null) {
                     throw new RuntimeException("用户未点赞");
                 }
@@ -100,7 +101,7 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
                 boolean success = update && this.removeById(thumbId);
                 // 点赞记录从 Redis 删除
                 if (success) {
-                    redisTemplate.opsForHash().delete(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(), blogId.toString());
+                    redisTemplate.opsForHash().delete(RedisKeyUtil.getUserThumbKey(loginUser.getId()), blogId.toString());
                 }
                 return success;
             });
@@ -109,7 +110,7 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
 
     @Override
     public Boolean hasThumb(Long postId, Long userId) {
-        return redisTemplate.opsForHash().hasKey(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, postId.toString());
+        return redisTemplate.opsForHash().hasKey(RedisKeyUtil.getUserThumbKey(userId), postId.toString());
     }
 
 }
