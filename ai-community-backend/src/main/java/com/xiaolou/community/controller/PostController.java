@@ -17,6 +17,7 @@ import com.xiaolou.community.model.dto.post.PostUpdateRequest;
 import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.vo.PostVO;
+import com.xiaolou.community.service.PostBloomFilterService;
 import com.xiaolou.community.service.PostService;
 import com.xiaolou.community.service.UserService;
 import java.util.List;
@@ -48,6 +49,9 @@ public class PostController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private PostBloomFilterService postBloomFilterService;
+
     // region 增删改查
 
     /**
@@ -76,6 +80,10 @@ public class PostController {
         boolean result = postService.save(post);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         long newPostId = post.getId();
+        
+        // 同步添加到布隆过滤器
+        postBloomFilterService.add(newPostId);
+        
         return ResultUtils.success(newPostId);
     }
 
@@ -101,6 +109,11 @@ public class PostController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean b = postService.removeById(id);
+        
+        // 注意：布隆过滤器不支持删除操作，这里只记录日志
+        // 如果需要精确控制，可以使用定时任务重新初始化布隆过滤器
+        log.info("博客已删除，blogId={}，布隆过滤器将在下次初始化时同步", id);
+        
         return ResultUtils.success(b);
     }
 

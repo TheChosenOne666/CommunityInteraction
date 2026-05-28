@@ -9,6 +9,7 @@ import com.xiaolou.community.model.dto.postthumb.DoThumbRequest;
 import com.xiaolou.community.model.entity.Thumb;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.enums.LuaStatusEnum;
+import com.xiaolou.community.service.PostBloomFilterService;
 import com.xiaolou.community.service.ThumbService;
 import com.xiaolou.community.service.UserService;
 import com.xiaolou.community.utils.RedisKeyUtil;
@@ -29,6 +30,9 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Resource
+    private PostBloomFilterService postBloomFilterService;
   
     @Override  
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {  
@@ -37,6 +41,12 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
         }  
         User loginUser = userService.getLoginUser(request);  
         Long blogId = doThumbRequest.getPostId();
+
+        // 布隆过滤器校验：快速判断博客是否存在
+        if (!postBloomFilterService.mightContain(blogId)) {
+            log.warn("点赞失败：博客不存在，blogId={}", blogId);
+            throw new RuntimeException("博客不存在");
+        }
   
         String timeSlice = getTimeSlice();  
         // Redis Key  
@@ -67,6 +77,12 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
         User loginUser = userService.getLoginUser(request);  
   
         Long blogId = doThumbRequest.getPostId();
+
+        // 布隆过滤器校验：快速判断博客是否存在
+        if (!postBloomFilterService.mightContain(blogId)) {
+            log.warn("取消点赞失败：博客不存在，blogId={}", blogId);
+            throw new RuntimeException("博客不存在");
+        }
         // 计算时间片  
         String timeSlice = getTimeSlice();  
         // Redis Key  
