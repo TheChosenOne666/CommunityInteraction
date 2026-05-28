@@ -49,14 +49,4 @@ public interface PostService extends IService<Post> {
      * @return
      */
     Page<PostVO> getPostVOPage(Page<Post> postPage, HttpServletRequest request);
-
-    /**
-     * 分批获取有效博客ID列表
-     * 用于布隆过滤器初始化
-     *
-     * @param offset 偏移量
-     * @param limit  每批数量
-     * @return 博客ID列表
-     */
-    java.util.List<Long> listValidPostIds(long offset, long limit);
 }

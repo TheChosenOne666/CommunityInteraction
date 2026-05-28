@@ -195,20 +195,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         return postVOPage;
     }
 
-    @Override
-    public List<Long> listValidPostIds(long offset, long limit) {
-        // 查询未删除的博客ID，分批获取
-        QueryWrapper<Post> queryWrapper = new QueryWrapper<>();
-        queryWrapper.select("id")
-                .eq("isDelete", 0)
-                .last("LIMIT " + limit + " OFFSET " + offset);
-        
-        List<Post> posts = this.list(queryWrapper);
-        return posts.stream()
-                .map(Post::getId)
-                .collect(Collectors.toList());
-    }
-
 }
 
 
