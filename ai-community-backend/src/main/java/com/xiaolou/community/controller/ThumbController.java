@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("thumb")  
 public class ThumbController {  
     @Resource  
-    private ThumbService thumbService;  
+    private ThumbService thumbServiceRedis;
 
     /**
      * 点赞
@@ -25,7 +25,7 @@ public class ThumbController {
      */
     @PostMapping("/do")  
     public BaseResponse<Boolean> doThumb(@RequestBody DoThumbRequest doThumbRequest, HttpServletRequest request) {  
-        Boolean success = thumbService.doThumb(doThumbRequest, request);  
+        Boolean success = thumbServiceRedis.doThumb(doThumbRequest, request);
         return ResultUtils.success(success);  
     }
 
@@ -37,7 +37,7 @@ public class ThumbController {
      */
     @PostMapping("/undo")
     public BaseResponse<Boolean> undoThumb(@RequestBody DoThumbRequest doThumbRequest, HttpServletRequest request) {
-        Boolean success = thumbService.undoThumb(doThumbRequest, request);
+        Boolean success = thumbServiceRedis.undoThumb(doThumbRequest, request);
         return ResultUtils.success(success);
     }
 

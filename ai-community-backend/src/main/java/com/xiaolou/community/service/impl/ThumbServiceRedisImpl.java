@@ -4,6 +4,8 @@ import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xiaolou.community.constant.RedisLuaScriptConstant;
+import com.xiaolou.community.constant.ThumbConstant;
+import com.xiaolou.community.manager.cache.CacheManager;
 import com.xiaolou.community.mapper.PostThumbMapper;
 import com.xiaolou.community.model.dto.postthumb.DoThumbRequest;
 import com.xiaolou.community.model.entity.Thumb;
@@ -20,7 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 
-@Service("thumbService")
+@Service("thumbServiceRedis")
 @Slf4j
 public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> implements ThumbService {
 
@@ -29,6 +31,10 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+
+    // 引入缓存管理
+    @Resource
+    private CacheManager cacheManager;
   
     @Override  
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {  
@@ -59,8 +65,21 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
             throw new RuntimeException("用户已点赞");  
         }  
   
-        // 更新成功才执行  
-        return LuaStatusEnum.SUCCESS.getValue() == result;  
+        // 更新成功才执行
+        boolean success = LuaStatusEnum.SUCCESS.getValue() == result;
+        
+        // 更新用户点赞状态缓存（不立即写数据库，由定时任务异步批量落库）
+        if (success) {
+            String hashKey = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId();
+            String fieldKey = blogId.toString();
+            // 使用占位值 1 标记已点赞（真实ID由定时任务同步时生成）
+            redisTemplate.opsForHash().put(hashKey, fieldKey, 1L);
+            // 写入本地缓存并触发热点探测
+            cacheManager.putIfPresent(hashKey, fieldKey, 1L);
+            log.info("用户 {} 对博客 {} 点赞成功", loginUser.getId(), blogId);
+        }
+        
+        return success;  
     }  
   
     @Override  
@@ -71,6 +90,13 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
         User loginUser = userService.getLoginUser(request);  
       
         Long blogId = doThumbRequest.getPostId();
+        
+        // 先从缓存中检查用户是否已点赞
+        Object thumbIdObj = cacheManager.get(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(), blogId.toString());
+        if (thumbIdObj == null || thumbIdObj.equals(ThumbConstant.UN_THUMB_CONSTANT)) {
+            throw new RuntimeException("用户未点赞");
+        }
+        
         // 计算时间片  
         String timeSlice = getTimeSlice();  
         // Redis Key  
@@ -92,17 +118,35 @@ public class ThumbServiceRedisImpl extends ServiceImpl<PostThumbMapper, Thumb> i
         if (result == LuaStatusEnum.FAIL.getValue()) {  
             throw new RuntimeException("用户未点赞");  
         }
-        return LuaStatusEnum.SUCCESS.getValue() == result;  
+        
+        boolean success = LuaStatusEnum.SUCCESS.getValue() == result;
+        
+        // 更新用户点赞状态缓存（不立即操作数据库，由定时任务异步批量处理）
+        if (success) {
+            String hashKey = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId();
+            String fieldKey = blogId.toString();
+            // 从 Redis Hash 中删除点赞标记
+            redisTemplate.opsForHash().delete(hashKey, fieldKey);
+            // 本地缓存标记为未点赞
+            cacheManager.putIfPresent(hashKey, fieldKey, ThumbConstant.UN_THUMB_CONSTANT);
+        }
+        
+        return success;  
     }
   
     private String getTimeSlice() {  
         DateTime nowDate = DateUtil.date();  
         // 获取到当前时间前最近的整数秒，比如当前 11:20:23 ，获取到 11:20:20  
         return DateUtil.format(nowDate, "HH:mm:") + (DateUtil.second(nowDate) / 10) * 10;  
-    }  
-  
-    @Override  
-    public Boolean hasThumb(Long blogId, Long userId) {  
-        return redisTemplate.opsForHash().hasKey(RedisKeyUtil.getUserThumbKey(userId), blogId.toString());  
-    }  
+    }
+
+    @Override
+    public Boolean hasThumb(Long postId, Long userId) {
+        Object thumbIdObj = cacheManager.get(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, postId.toString());
+        if (thumbIdObj == null) {
+            return false;
+        }
+        Long thumbId = (Long) thumbIdObj;
+        return !thumbId.equals(ThumbConstant.UN_THUMB_CONSTANT);
+    }
 }
