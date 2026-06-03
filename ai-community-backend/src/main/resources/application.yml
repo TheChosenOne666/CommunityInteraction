@@ -26,6 +26,26 @@ spring:
     store-type: redis
     # session 30 天过期
     timeout: 2592000
+  # Kafka 配置
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # key 序列化器
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # value 序列化器（使用 JSON）
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      # key 反序列化器
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # value 反序列化器（使用 JSON）
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # 信任所有包的类（允许反序列化 ThumbEvent）
+      properties:
+        spring.json.trusted.packages: "com.xiaolou.community.model.dto.thumb"
+      # 消费者组 ID
+      group-id: thumb-group
+      # 自动提交偏移量（手动 ACK 时设为 false）
+      enable-auto-commit: false
 server:
   port: 8080
   servlet:

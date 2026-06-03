@@ -25,7 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @author <a href="https://github.com/TheChosenOne666">小楼</a>
  * @from <a href="https://github.com/TheChosenOne666">TheChosenOne666</a>
  */
-@Service("thumbService")
+@Service("thumbServiceLocalCache")
 @Slf4j
 public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implements ThumbService {
 
