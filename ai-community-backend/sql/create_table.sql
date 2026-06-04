@@ -63,3 +63,33 @@ create table if not exists post_favour
     index idx_postId (postId),
     index idx_userId (userId)
 ) comment '帖子收藏';
+
+-- 评论表
+create table if not exists comment
+(
+    id            bigint auto_increment comment 'id' primary key,
+    content       text                               not null comment '评论内容',
+    postId        bigint                             not null comment '帖子 id',
+    userId        bigint                             not null comment '评论用户 id',
+    parentId      bigint   default 0                 not null comment '父评论 id，0 表示顶级评论',
+    replyToUserId bigint   default 0                 not null comment '回复目标用户 id',
+    thumbNum      int      default 0                 not null comment '点赞数',
+    createTime    datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime    datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete      tinyint  default 0                 not null comment '是否删除',
+    index idx_postId (postId),
+    index idx_userId (userId),
+    index idx_parentId (parentId)
+) comment '评论' collate = utf8mb4_unicode_ci;
+
+-- 评论点赞表（硬删除）
+create table if not exists comment_thumb
+(
+    id         bigint auto_increment comment 'id' primary key,
+    commentId  bigint                             not null comment '评论 id',
+    userId     bigint                             not null comment '用户 id',
+    createTime datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    index idx_commentId (commentId),
+    index idx_userId (userId),
+    unique key uk_comment_user (commentId, userId)
+) comment '评论点赞';
