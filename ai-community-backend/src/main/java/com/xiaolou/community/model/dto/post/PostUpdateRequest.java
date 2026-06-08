@@ -24,6 +24,11 @@ public class PostUpdateRequest implements Serializable {
     private String title;
 
     /**
+     * 封面图片
+     */
+    private String coverImg;
+
+    /**
      * 内容
      */
     private String content;

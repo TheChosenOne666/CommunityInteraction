@@ -21,7 +21,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,title,content,tags,
+        id,title,coverImg,content,tags,
         thumbNum,favourNum,userId,
         createTime,updateTime,isDelete
     </sql>

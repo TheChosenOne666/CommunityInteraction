@@ -84,3 +84,16 @@ export const commentApi = {
   getCount: (postId: string) =>
     apiClient.get<BaseResponse<number>>('/comment/count', { params: { postId } }),
 };
+
+// File API
+export const fileApi = {
+  upload: (file: File, biz: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // UploadFileRequest as JSON blob
+    formData.append('uploadFileRequest', new Blob([JSON.stringify({ biz })], { type: 'application/json' }));
+    return apiClient.post<BaseResponse<string>>('/file/upload', formData, {
+      timeout: 30000,
+    });
+  },
+};

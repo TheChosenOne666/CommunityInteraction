@@ -4,7 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import com.xiaolou.community.common.BaseResponse;
 import com.xiaolou.community.common.ErrorCode;
 import com.xiaolou.community.common.ResultUtils;
-import com.xiaolou.community.constant.FileConstant;
+import com.xiaolou.community.config.CosClientConfig;
 import com.xiaolou.community.exception.BusinessException;
 import com.xiaolou.community.manager.CosManager;
 import com.xiaolou.community.model.dto.file.UploadFileRequest;
@@ -41,6 +41,9 @@ public class FileController {
     @Resource
     private CosManager cosManager;
 
+    @Resource
+    private CosClientConfig cosClientConfig;
+
     /**
      * 文件上传
      *
@@ -51,7 +54,7 @@ public class FileController {
      */
     @PostMapping("/upload")
     public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
-            UploadFileRequest uploadFileRequest, HttpServletRequest request) {
+            @RequestPart("uploadFileRequest") UploadFileRequest uploadFileRequest, HttpServletRequest request) {
         String biz = uploadFileRequest.getBiz();
         FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
         if (fileUploadBizEnum == null) {
@@ -70,7 +73,7 @@ public class FileController {
             multipartFile.transferTo(file);
             cosManager.putObject(filepath, file);
             // 返回可访问地址
-            return ResultUtils.success(FileConstant.COS_HOST + filepath);
+            return ResultUtils.success(cosClientConfig.getHost() + filepath);
         } catch (Exception e) {
             log.error("file upload error, filepath = " + filepath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
@@ -103,6 +106,14 @@ public class FileController {
             }
             if (!Arrays.asList("jpeg", "jpg", "svg", "png", "webp").contains(fileSuffix)) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件类型错误");
+            }
+        }
+        if (FileUploadBizEnum.POST_COVER.equals(fileUploadBizEnum)) {
+            if (fileSize > 5 * ONE_M) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "封面图片大小不能超过 5M");
+            }
+            if (!Arrays.asList("jpeg", "jpg", "png", "webp").contains(fileSuffix)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "封面图片格式仅支持 jpg/jpeg/png/webp");
             }
         }
     }

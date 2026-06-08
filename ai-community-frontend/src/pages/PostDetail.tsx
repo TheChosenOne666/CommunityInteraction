@@ -288,6 +288,17 @@ export default function PostDetail() {
               </div>
             )}
 
+            {/* Cover Image */}
+            {post.coverImg && (
+              <div className="mb-6 rounded-xl overflow-hidden">
+                <img
+                  src={post.coverImg}
+                  alt={post.title}
+                  className="w-full max-h-80 object-cover rounded-xl"
+                />
+              </div>
+            )}
+
             <div
               className="prose-content text-gray-700"
               dangerouslySetInnerHTML={{ __html: post.content }}

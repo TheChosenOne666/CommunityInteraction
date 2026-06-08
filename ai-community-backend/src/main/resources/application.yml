@@ -92,10 +92,12 @@ mybatis-plus:
       logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
 
 # 对象存储
-# todo 需替换配置
 cos:
   client:
     accessKey: xxx
     secretKey: xxx
     region: xxx
     bucket: xxx
+
+ai:
+  api-key: xxx

@@ -93,3 +93,19 @@ create table if not exists comment_thumb
     index idx_userId (userId),
     unique key uk_comment_user (commentId, userId)
 ) comment '评论点赞';
+
+-- AI分析报告表
+create table if not exists post_analysis
+(
+    id                bigint auto_increment comment 'id' primary key,
+    postId            bigint                             not null comment '帖子 id',
+    aiComment         text                               null comment 'AI 生成的评论',
+    rawResponse       mediumtext                         null comment '原始 AI 响应',
+    status            varchar(32)  default 'PENDING'     not null comment '分析状态：PENDING/SUCCESS/FAILED',
+    errorMessage      varchar(512)                       null comment '错误信息',
+    createTime        datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime        datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete          tinyint      default 0             not null comment '是否删除',
+    unique key uk_postId (postId),
+    index idx_postId (postId)
+) comment 'AI分析报告' collate = utf8mb4_unicode_ci;

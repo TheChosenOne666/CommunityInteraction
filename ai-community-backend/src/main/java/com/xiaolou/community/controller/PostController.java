@@ -17,6 +17,7 @@ import com.xiaolou.community.model.dto.post.PostUpdateRequest;
 import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.vo.PostVO;
+import com.xiaolou.community.service.PostAnalysisService;
 import com.xiaolou.community.service.PostService;
 import com.xiaolou.community.service.UserService;
 import java.util.List;
@@ -48,6 +49,9 @@ public class PostController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private PostAnalysisService postAnalysisService;
+
     // region 增删改查
 
     /**
@@ -68,6 +72,10 @@ public class PostController {
         if (tags != null) {
             post.setTags(JSONUtil.toJsonStr(tags));
         }
+        // 设置封面图
+        if (postAddRequest.getCoverImg() != null) {
+            post.setCoverImg(postAddRequest.getCoverImg());
+        }
         postService.validPost(post, true);
         User loginUser = userService.getLoginUser(request);
         post.setUserId(loginUser.getId());
@@ -76,6 +84,12 @@ public class PostController {
         boolean result = postService.save(post);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         long newPostId = post.getId();
+        // 异步触发 AI 分析
+        try {
+            postAnalysisService.triggerAnalysis(newPostId, post.getTitle(), post.getContent(), post.getTags());
+        } catch (Exception e) {
+            log.error("触发 AI 分析失败，postId: {}", newPostId, e);
+        }
         return ResultUtils.success(newPostId);
     }
 
@@ -228,6 +242,10 @@ public class PostController {
         List<String> tags = postEditRequest.getTags();
         if (tags != null) {
             post.setTags(JSONUtil.toJsonStr(tags));
+        }
+        // 设置封面图
+        if (postEditRequest.getCoverImg() != null) {
+            post.setCoverImg(postEditRequest.getCoverImg());
         }
         // 参数校验
         postService.validPost(post, false);

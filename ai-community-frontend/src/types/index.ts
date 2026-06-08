@@ -20,6 +20,7 @@ export interface LoginUserVO {
 export interface PostVO {
   id: string;
   title: string;
+  coverImg: string;
   content: string;
   thumbNum: number;
   favourNum: number;
@@ -59,6 +60,7 @@ export interface PostQueryRequest {
 export interface PostAddRequest {
   title: string;
   content: string;
+  coverImg?: string;
   tags?: string[];
 }
 
@@ -66,6 +68,7 @@ export interface PostEditRequest {
   id: string;
   title?: string;
   content?: string;
+  coverImg?: string;
   tags?: string[];
 }
 
@@ -138,3 +141,4 @@ export interface CommentQueryRequest {
 export interface CommentThumbRequest {
   commentId: string;
 }
+
