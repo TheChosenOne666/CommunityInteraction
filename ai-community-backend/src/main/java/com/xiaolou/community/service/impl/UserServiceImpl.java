@@ -18,12 +18,15 @@ import com.xiaolou.community.service.UserService;
 import com.xiaolou.community.utils.SqlUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 /**
@@ -41,42 +44,76 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     public static final String SALT = "xiaolou";
 
+    /**
+     * 账号格式：4-20位字母、数字、下划线
+     */
+    private static final String ACCOUNT_PATTERN = "^[a-zA-Z0-9_]{4,20}$";
+
+    /**
+     * 密码最小长度
+     */
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
+    /**
+     * 登录失败次数上限
+     */
+    private static final int MAX_LOGIN_FAIL_COUNT = 5;
+
+    /**
+     * 登录失败记录（生产环境应使用 Redis）
+     */
+    private final ConcurrentHashMap<String, Integer> loginFailCount = new ConcurrentHashMap<>();
+
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+        if (userAccount.length() < 4 || userAccount.length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度需在 4-20 位之间");
         }
-        if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+        if (!userAccount.matches(ACCOUNT_PATTERN)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号只能包含字母、数字和下划线");
+        }
+        if (userPassword.length() < MIN_PASSWORD_LENGTH || checkPassword.length() < MIN_PASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能少于 8 位");
+        }
+        if (userPassword.length() > 64) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能超过 64 位");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
-        synchronized (userAccount.intern()) {
-            // 账户不能重复
-            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("userAccount", userAccount);
-            long count = this.baseMapper.selectCount(queryWrapper);
-            if (count > 0) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
-            }
-            // 2. 加密
-            String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
-            // 3. 插入数据
-            User user = new User();
-            user.setUserAccount(userAccount);
-            user.setUserPassword(encryptPassword);
+        // 密码强度：至少包含字母和数字
+        if (!userPassword.matches(".*[a-zA-Z].*") || !userPassword.matches(".*[0-9].*")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码需同时包含字母和数字");
+        }
+
+        // 2. 加密
+        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+        // 3. 生成默认昵称和头像
+        String defaultName = "社区用户_" + cn.hutool.core.util.RandomUtil.randomString(6);
+        String defaultAvatar = "https://api.dicebear.com/9.x/thumbs/svg?seed=" + userAccount;
+
+        // 4. 插入数据（唯一约束兜底）
+        User user = new User();
+        user.setUserAccount(userAccount);
+        user.setUserPassword(encryptPassword);
+        user.setUserName(defaultName);
+        user.setUserAvatar(defaultAvatar);
+        // 默认 role 由数据库 default 'user' 提供
+        try {
             boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
             }
-            return user.getId();
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已存在");
         }
+        return user.getId();
     }
 
     @Override
@@ -85,12 +122,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号错误");
+
+        // 检查是否已被锁定
+        Integer failCount = loginFailCount.getOrDefault(userAccount, 0);
+        if (failCount >= MAX_LOGIN_FAIL_COUNT) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "登录失败次数过多，请稍后再试");
         }
-        if (userPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
-        }
+
         // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         // 查询用户是否存在
@@ -98,11 +136,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("userAccount", userAccount);
         queryWrapper.eq("userPassword", encryptPassword);
         User user = this.baseMapper.selectOne(queryWrapper);
-        // 用户不存在
+        // 用户不存在或密码错误
         if (user == null) {
-            log.info("user login failed, userAccount cannot match userPassword");
+            loginFailCount.merge(userAccount, 1, Integer::sum);
+            log.info("user login failed, userAccount: {}, failCount: {}", userAccount, loginFailCount.get(userAccount));
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
+        // 登录成功，清除失败计数
+        loginFailCount.remove(userAccount);
         // 3. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return this.getLoginUserVO(user);

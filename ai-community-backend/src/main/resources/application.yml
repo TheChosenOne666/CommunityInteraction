@@ -6,16 +6,9 @@ spring:
     name: community-backend
   profiles:
     active: local
-  # 数据库配置
-  # todo 需替换配置
-#  datasource:
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    url: jdbc:mysql://localhost:3306/community
-#    username: root
-#    password: 123456
-
-  # TiDB迁移
+  # TiDB 数据库
   datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:4000/community
     username: root
     password:

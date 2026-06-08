@@ -19,30 +19,50 @@ export default function Register() {
 
   const validatePassword = (password: string) => {
     return {
-      length: password.length >= 8,
+      length: password.length >= 8 && password.length <= 64,
+      hasLetter: /[a-zA-Z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+    };
+  };
+
+  const validateAccount = (account: string) => {
+    return {
+      length: account.length >= 4 && account.length <= 20,
+      format: /^[a-zA-Z0-9_]+$/.test(account),
     };
   };
 
   const passwordValidation = validatePassword(formData.userPassword);
+  const accountValidation = validateAccount(formData.userAccount);
   const passwordsMatch = formData.userPassword === formData.checkPassword && formData.checkPassword.length > 0;
-  const accountValid = formData.userAccount.length >= 4;
+  const allValid =
+    accountValidation.length && accountValidation.format &&
+    passwordValidation.length && passwordValidation.hasLetter && passwordValidation.hasNumber &&
+    passwordsMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess(false);
 
+    if (!accountValidation.length) {
+      setError('账号长度需在 4-20 位之间');
+      return;
+    }
+    if (!accountValidation.format) {
+      setError('账号只能包含字母、数字和下划线');
+      return;
+    }
     if (formData.userPassword !== formData.checkPassword) {
       setError('两次输入的密码不一致');
       return;
     }
-
-    if (formData.userAccount.length < 4) {
-      setError('用户账号过短，至少4位');
+    if (!passwordValidation.length) {
+      setError('密码长度需在 8-64 位之间');
       return;
     }
-    if (formData.userPassword.length < 8) {
-      setError('用户密码过短，至少8位');
+    if (!passwordValidation.hasLetter || !passwordValidation.hasNumber) {
+      setError('密码需同时包含字母和数字');
       return;
     }
 
@@ -50,14 +70,18 @@ export default function Register() {
 
     userApi
       .register(formData)
-      .then(() => {
+      .then((res) => {
+        if (res.data.code !== 0) {
+          setError(res.data.message || '注册失败，请重试');
+          return;
+        }
         setSuccess(true);
         setTimeout(() => {
           navigate('/login');
         }, 1500);
       })
       .catch((err) => {
-        setError(err.response?.data?.message || '注册失败，请重试');
+        setError(err.response?.data?.message || '网络错误，请重试');
       })
       .finally(() => {
         setLoading(false);
@@ -98,7 +122,7 @@ export default function Register() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 账号
-                <span className={`ml-2 text-xs ${accountValid ? 'text-green-600' : 'text-gray-400'}`}>
+                <span className={`ml-2 text-xs ${accountValidation.length && accountValidation.format ? 'text-green-600' : 'text-gray-400'}`}>
                   至少4位
                 </span>
               </label>
@@ -111,21 +135,33 @@ export default function Register() {
                 autoComplete="username"
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                   formData.userAccount.length > 0 
-                    ? (accountValid ? 'border-green-300' : 'border-red-300')
+                    ? (accountValidation.length && accountValidation.format ? 'border-green-300' : 'border-red-300')
                     : 'border-gray-300'
                 }`}
                 placeholder="请输入账号"
               />
               {formData.userAccount.length > 0 && (
-                <div className="mt-2 flex items-center space-x-1">
-                  {accountValid ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-red-500" />
-                  )}
-                  <span className={`text-xs ${accountValid ? 'text-green-600' : 'text-red-600'}`}>
-                    {accountValid ? '账号长度符合要求' : '账号太短，至少需要4位'}
-                  </span>
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center space-x-1">
+                    {accountValidation.length ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={`text-xs ${accountValidation.length ? 'text-green-600' : 'text-red-600'}`}>
+                      4-20 位字符
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {accountValidation.format ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={`text-xs ${accountValidation.format ? 'text-green-600' : 'text-red-600'}`}>
+                      只能包含字母、数字、下划线
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -133,8 +169,8 @@ export default function Register() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 密码
-                <span className={`ml-2 text-xs ${passwordValidation.length ? 'text-green-600' : 'text-gray-400'}`}>
-                  至少8位
+                <span className={`ml-2 text-xs ${passwordValidation.length && passwordValidation.hasLetter && passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-400'}`}>
+                  8-64位，含字母和数字
                 </span>
               </label>
               <div className="relative">
@@ -147,7 +183,7 @@ export default function Register() {
                   autoComplete="new-password"
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 transition-all ${
                     formData.userPassword.length > 0 
-                      ? (passwordValidation.length ? 'border-green-300' : 'border-red-300')
+                      ? (passwordValidation.length && passwordValidation.hasLetter && passwordValidation.hasNumber ? 'border-green-300' : 'border-red-300')
                       : 'border-gray-300'
                   }`}
                   placeholder="请输入密码（至少8位）"
@@ -173,7 +209,27 @@ export default function Register() {
                       <XCircle className="w-4 h-4 text-red-500" />
                     )}
                     <span className={`text-xs ${passwordValidation.length ? 'text-green-600' : 'text-red-600'}`}>
-                      密码长度至少8位
+                      8-64 位
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {passwordValidation.hasLetter ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={`text-xs ${passwordValidation.hasLetter ? 'text-green-600' : 'text-red-600'}`}>
+                      包含字母
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {passwordValidation.hasNumber ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span className={`text-xs ${passwordValidation.hasNumber ? 'text-green-600' : 'text-red-600'}`}>
+                      包含数字
                     </span>
                   </div>
                 </div>
@@ -227,8 +283,12 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={loading || success}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              disabled={loading || success || !allValid}
+              className={`w-full py-3 rounded-lg transition-colors font-medium ${
+                allValid && !loading && !success
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
               {loading ? (
                 <div className="flex items-center justify-center space-x-2">

@@ -20,7 +20,9 @@ create table if not exists user
     userRole     varchar(256) default 'user'            not null comment '用户角色：user/admin/ban',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
-    isDelete     tinyint      default 0                 not null comment '是否删除'
+    isDelete     tinyint      default 0                 not null comment '是否删除',
+    unique key uk_userAccount (userAccount),
+    index idx_userName (userName)
 ) comment '用户' collate = utf8mb4_unicode_ci;
 
 -- 帖子表
