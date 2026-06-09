@@ -1,6 +1,9 @@
 package com.xiaolou.community.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xiaolou.community.model.dto.postthumb.DoThumbRequest;
+import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.Thumb;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,5 +40,12 @@ public interface ThumbService extends IService<Thumb> {
      */
     Boolean hasThumb(Long postId, Long userId);
 
+    /**
+     * 获取用户点赞的帖子分页列表
+     * @param page
+     * @param userId
+     * @return
+     */
+    Page<Post> listMyThumbPosts(IPage<Post> page, long userId);
 
 }

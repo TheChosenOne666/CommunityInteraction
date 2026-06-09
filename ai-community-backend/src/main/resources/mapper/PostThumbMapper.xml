@@ -18,4 +18,14 @@
         id,postId,
         userId,createTime,updateTime
     </sql>
+
+    <select id="listMyThumbPosts"
+            resultType="com.xiaolou.community.model.entity.Post">
+        select p.*
+        from post p
+                 join (select postId from post_thumb where userId = #{userId}) pt
+                      on p.id = pt.postId
+        where p.isDelete = 0
+        order by pt.createTime desc
+    </select>
 </mapper>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Settings, Heart, Bookmark, FileText, Camera, X, Loader2 } from 'lucide-react';
-import { postApi, postFavourApi, userApi, fileApi } from '../api/endpoints';
+import { postApi, postFavourApi, userApi, fileApi, thumbApi } from '../api/endpoints';
 import { PostVO } from '../types';
 import { useAppStore } from '../store';
 import PostList from '../components/PostList';
@@ -119,13 +119,28 @@ export default function Profile() {
     }
   };
 
+  const loadMyLikes = async () => {
+    setLoading(true);
+    try {
+      const response = await thumbApi.getMyThumbList({
+        current: 1,
+        pageSize: 20,
+      });
+      setPosts(response.data.data.records);
+    } catch (error) {
+      console.error('Failed to load my likes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'posts') {
       loadMyPosts();
     } else if (activeTab === 'favourites') {
       loadMyFavourites();
     } else {
-      setPosts([]);
+      loadMyLikes();
     }
   }, [activeTab]);
 
@@ -211,14 +226,7 @@ export default function Profile() {
         </div>
 
         <div className="mt-6">
-          {activeTab === 'likes' ? (
-            <div className="text-center py-16">
-              <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">暂无点赞内容</p>
-            </div>
-          ) : (
-            <PostList posts={posts} loading={loading} />
-          )}
+          <PostList posts={posts} loading={loading} />
         </div>
       </div>
 

@@ -54,6 +54,8 @@ export const thumbApi = {
     apiClient.post<BaseResponse<boolean>>('/thumb/do', data),
   undoThumb: (data: DoThumbRequest) =>
     apiClient.post<BaseResponse<boolean>>('/thumb/undo', data),
+  getMyThumbList: (data: PostQueryRequest) =>
+    apiClient.post<BaseResponse<Page<PostVO>>>('/thumb/my/list/page', data),
 };
 
 // Post Favour API

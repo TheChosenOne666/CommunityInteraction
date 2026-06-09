@@ -1,5 +1,7 @@
 package com.xiaolou.community.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xiaolou.community.constant.ThumbConstant;
 import com.xiaolou.community.manager.cache.CacheManager;
@@ -131,6 +133,11 @@ public class ThumbServiceImpl extends ServiceImpl<PostThumbMapper, Thumb> implem
         }
         Long thumbId = (Long) thumbIdObj;
         return !thumbId.equals(ThumbConstant.UN_THUMB_CONSTANT);
+    }
+
+    @Override
+    public Page<Post> listMyThumbPosts(IPage<Post> page, long userId) {
+        return this.baseMapper.listMyThumbPosts(page, userId);
     }
 
 }

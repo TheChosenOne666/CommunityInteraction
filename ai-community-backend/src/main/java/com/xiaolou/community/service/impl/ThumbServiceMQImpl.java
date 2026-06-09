@@ -1,10 +1,13 @@
 package com.xiaolou.community.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xiaolou.community.constant.RedisLuaScriptConstant;
 import com.xiaolou.community.mapper.PostThumbMapper;
 import com.xiaolou.community.model.dto.postthumb.DoThumbRequest;
 import com.xiaolou.community.model.dto.thumb.ThumbEvent;
+import com.xiaolou.community.model.entity.Post;
 import com.xiaolou.community.model.entity.Thumb;
 import com.xiaolou.community.model.entity.User;
 import com.xiaolou.community.model.enums.LuaStatusEnum;
@@ -174,5 +177,10 @@ public class ThumbServiceMQImpl extends ServiceImpl<PostThumbMapper, Thumb>
                     .eq(Thumb::getPostId, postId)
                     .exists();
         }
+    }
+
+    @Override
+    public Page<Post> listMyThumbPosts(IPage<Post> page, long userId) {
+        return this.baseMapper.listMyThumbPosts(page, userId);
     }
 }
