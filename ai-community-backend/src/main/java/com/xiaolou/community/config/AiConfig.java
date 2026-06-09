@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+
 /**
  * AI 配置 - 火山引擎 Ark
  *
@@ -21,6 +23,8 @@ public class AiConfig {
         return ArkService.builder()
                 .apiKey(apiKey)
                 .baseUrl("https://ark.cn-beijing.volces.com/api/v3")
+                .timeout(Duration.ofSeconds(60))
+                .connectTimeout(Duration.ofSeconds(10))
                 .build();
     }
 }
